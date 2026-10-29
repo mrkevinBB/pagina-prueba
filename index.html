@@ -230,16 +230,21 @@
       <!-- Sección Izquierda: Catálogo de Productos -->
       <div class="col-lg-7">
         
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
           <div>
             <h3 class="fw-bold m-0" style="color: var(--warm-dark);">
               <i class="fa-solid fa-basket-shopping text-danger me-2"></i>Catálogo de Venta
             </h3>
-            <span class="text-muted small">Selecciona los productos solicitados por el cliente</span>
+            <span class="text-muted small">Selecciona o administra la imagen de los productos</span>
           </div>
-          <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="cargarProductos()">
-            <i class="fa-solid fa-arrows-rotate me-1"></i> Actualizar
-          </button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-semibold" onclick="abrirModalSubida()">
+              <i class="fa-solid fa-camera me-1"></i> Subir Foto
+            </button>
+            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="cargarProductos()">
+              <i class="fa-solid fa-arrows-rotate me-1"></i> Actualizar
+            </button>
+          </div>
         </div>
 
         <!-- Buscador -->
@@ -335,6 +340,69 @@
     </div>
   </div>
 
+  <!-- Modal para Subir y Asignar Foto -->
+  <div class="modal fade" id="modalSubirFoto" tabindex="-1" aria-labelledby="modalSubirFotoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-4 border-0 shadow">
+        <div class="modal-header bg-danger text-white rounded-top-4">
+          <h5 class="modal-title fw-bold" id="modalSubirFotoLabel">
+            <i class="fa-solid fa-image me-2"></i>Asignar Foto a Producto
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <form id="formFotoProducto" onsubmit="guardarFotoProducto(event)">
+            <div class="mb-3">
+              <label for="selectProductoFoto" class="form-label fw-bold">Seleccionar Producto:</label>
+              <select id="selectProductoFoto" class="form-select rounded-3" required>
+                <!-- Opciones dinámicas -->
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-bold">Origen de la Imagen:</label>
+              <ul class="nav nav-pills nav-fill mb-3" id="pills-tab" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <button class="nav-item nav-link active btn-sm" id="tab-archivo" data-bs-toggle="pill" data-bs-target="#panel-archivo" type="button" role="tab">Archivo Local</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-item nav-link btn-sm" id="tab-url" data-bs-toggle="pill" data-bs-target="#panel-url" type="button" role="tab">Enlace URL</button>
+                </li>
+              </ul>
+
+              <div class="tab-content" id="pills-tabContent">
+                <!-- Cargar desde Archivo Local -->
+                <div class="tab-pane fade show active" id="panel-archivo" role="tabpanel">
+                  <input type="file" id="inputArchivoFoto" class="form-control" accept="image/*" onchange="previsualizarArchivo(event)">
+                </div>
+
+                <!-- Cargar desde URL -->
+                <div class="tab-pane fade" id="panel-url" role="tabpanel">
+                  <input type="url" id="inputUrlFoto" class="form-control" placeholder="https://ejemplo.com/imagen.jpg" oninput="previsualizarUrl(this.value)">
+                </div>
+              </div>
+            </div>
+
+            <!-- Previsualización de la Imagen -->
+            <div class="text-center my-3 p-3 bg-light rounded-3 border">
+              <span class="d-block text-muted small mb-2">Previsualización:</span>
+              <img id="imgPreview" src="https://placehold.co/300x200/e0e0e0/888888?text=Sin+Imagen" class="rounded-3 shadow-sm" style="max-height: 160px; object-fit: contain;">
+            </div>
+
+            <div class="d-grid gap-2 mt-4">
+              <button type="submit" class="btn btn-danger btn-lg rounded-3 fw-bold">
+                <i class="fa-solid fa-floppy-disk me-2"></i>Guardar Foto
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
   <!-- JavaScript interactivo -->
   <script>
     // Estado General
@@ -342,7 +410,9 @@
     let productosFiltrados = [];
     let caja = [];
     let totalCaja = 0;
-    
+    let imagenTemporal = '';
+    let bsModalFoto = null;
+
     // Paginación
     let paginaActual = 1;
     const productosPorPagina = 6;
@@ -353,7 +423,84 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       cargarProductos();
+      const modalEl = document.getElementById('modalSubirFoto');
+      if (modalEl) {
+        bsModalFoto = new bootstrap.Modal(modalEl);
+      }
     });
+
+    // Funciones para Gestión de Fotografías
+    function abrirModalSubida() {
+      const select = document.getElementById('selectProductoFoto');
+      select.innerHTML = '';
+
+      todosLosProductos.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = p.nombre;
+        select.appendChild(option);
+      });
+
+      imagenTemporal = '';
+      document.getElementById('inputArchivoFoto').value = '';
+      document.getElementById('inputUrlFoto').value = '';
+      document.getElementById('imgPreview').src = 'https://placehold.co/300x200/e0e0e0/888888?text=Sin+Imagen';
+
+      if (bsModalFoto) bsModalFoto.show();
+    }
+
+    function seleccionarProductoParaFoto(idProd) {
+      abrirModalSubida();
+      document.getElementById('selectProductoFoto').value = idProd;
+      const prod = todosLosProductos.find(p => p.id === idProd);
+      if (prod && prod.imagenUrl) {
+        document.getElementById('imgPreview').src = prod.imagenUrl;
+        imagenTemporal = prod.imagenUrl;
+      }
+    }
+
+    function previsualizarArchivo(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          imagenTemporal = e.target.result;
+          document.getElementById('imgPreview').src = imagenTemporal;
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function previsualizarUrl(url) {
+      if (url && url.trim() !== '') {
+        imagenTemporal = url.trim();
+        document.getElementById('imgPreview').src = imagenTemporal;
+      }
+    }
+
+    function guardarFotoProducto(event) {
+      event.preventDefault();
+      const idProducto = parseInt(document.getElementById('selectProductoFoto').value);
+      
+      if (!imagenTemporal) {
+        alert('Por favor selecciona una imagen local o ingresa un enlace URL.');
+        return;
+      }
+
+      const producto = todosLosProductos.find(p => p.id === idProducto);
+      if (producto) {
+        producto.imagenUrl = imagenTemporal;
+        renderizarProductos();
+        
+        if (bsModalFoto) bsModalFoto.hide();
+
+        const statusAlert = document.getElementById('statusAlert');
+        statusAlert.classList.remove('d-none', 'alert-warning', 'alert-danger');
+        statusAlert.classList.add('alert-success');
+        statusAlert.innerHTML = `<i class="fa-solid fa-circle-check me-2"></i>Fotografía actualizada para <strong>${producto.nombre}</strong>.`;
+        setTimeout(() => statusAlert.classList.add('d-none'), 3000);
+      }
+    }
 
     async function cargarProductos() {
       const statusAlert = document.getElementById('statusAlert');
@@ -369,7 +516,8 @@
         todosLosProductos = data.map(p => ({ 
           ...p, 
           precio: p.precioVenta || p.precio || 0,
-          cantidadInput: 1 
+          cantidadInput: 1,
+          imagenUrl: p.imagenUrl || null
         }));
         statusAlert.classList.add('d-none');
       } catch (err) {
@@ -379,14 +527,14 @@
         statusAlert.innerHTML = '<i class="fa-solid fa-circle-info me-2"></i><strong>Modo Local de Prueba:</strong> Mostrando productos de despensa integrados.';
 
         todosLosProductos = [
-          { id: 1, nombre: 'Azúcar Blanca', descripcion: 'Bolsa x 1 kg', precio: 1000, cantidadInput: 1 },
-          { id: 2, nombre: 'Panela Trébol', descripcion: 'Atado de 4 pastillas', precio: 4000, cantidadInput: 1 },
-          { id: 3, nombre: 'Gaseosa Pepsi', descripcion: 'Botella 1.5 Litros', precio: 5000, cantidadInput: 1 },
-          { id: 4, nombre: 'Aguardiente Amarillo', descripcion: 'Botella 750 ml', precio: 45000, cantidadInput: 1 },
-          { id: 5, nombre: 'Leche Alquería', descripcion: 'Bolsa Entera 1L', precio: 4200, cantidadInput: 1 },
-          { id: 6, nombre: 'Arroz Roa', descripcion: 'Libra 500g', precio: 2400, cantidadInput: 1 },
-          { id: 7, nombre: 'Aceite Vegetal', descripcion: 'Envase 500 ml', precio: 9500, cantidadInput: 1 },
-          { id: 8, nombre: 'Café Sello Rojo', descripcion: 'Papeleta 250g', precio: 8800, cantidadInput: 1 }
+          { id: 1, nombre: 'Azúcar Blanca', descripcion: 'Bolsa x 1 kg', precio: 1000, cantidadInput: 1, imagenUrl: null },
+          { id: 2, nombre: 'Panela Trébol', descripcion: 'Atado de 4 pastillas', precio: 4000, cantidadInput: 1, imagenUrl: null },
+          { id: 3, nombre: 'Gaseosa Pepsi', descripcion: 'Botella 1.5 Litros', precio: 5000, cantidadInput: 1, imagenUrl: null },
+          { id: 4, nombre: 'Aguardiente Amarillo', descripcion: 'Botella 750 ml', precio: 45000, cantidadInput: 1, imagenUrl: null },
+          { id: 5, nombre: 'Leche Alquería', descripcion: 'Bolsa Entera 1L', precio: 4200, cantidadInput: 1, imagenUrl: null },
+          { id: 6, nombre: 'Arroz Roa', descripcion: 'Libra 500g', precio: 2400, cantidadInput: 1, imagenUrl: null },
+          { id: 7, nombre: 'Aceite Vegetal', descripcion: 'Envase 500 ml', precio: 9500, cantidadInput: 1, imagenUrl: null },
+          { id: 8, nombre: 'Café Sello Rojo', descripcion: 'Papeleta 250g', precio: 8800, cantidadInput: 1, imagenUrl: null }
         ];
       }
 
@@ -423,11 +571,16 @@
         const col = document.createElement('div');
         col.className = 'col-sm-6 col-md-4';
         
+        const imagenSrc = p.imagenUrl ? p.imagenUrl : `https://placehold.co/300x200/fff3e0/d9534f?text=${encodeURIComponent(p.nombre)}`;
+
         col.innerHTML = `
           <div class="card card-product h-100">
             <div class="card-img-wrapper text-center">
               <span class="badge-tag"><i class="fa-solid fa-tag me-1"></i>Disponible</span>
-              <img src="https://placehold.co/300x200/fff3e0/d9534f?text=${encodeURIComponent(p.nombre)}" class="card-img-top" alt="${p.nombre}">
+              <img src="${imagenSrc}" class="card-img-top" alt="${p.nombre}" id="img-prod-${p.id}">
+              <button class="btn btn-sm btn-light border rounded-circle position-absolute bottom-0 end-0 m-2 shadow-sm" title="Cambiar imagen de ${p.nombre}" onclick="seleccionarProductoParaFoto(${p.id})">
+                <i class="fa-solid fa-camera text-danger"></i>
+              </button>
             </div>
             <div class="card-body d-flex flex-column justify-content-between p-3">
               <div>
